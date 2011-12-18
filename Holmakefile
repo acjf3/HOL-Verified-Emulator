@@ -1,1 +1,16 @@
 INCLUDES = $(HOLDIR)/tools/mlyacc/mlyacclib $(HOLDIR)/examples/ARM/v7
+OPTIONS = QUIT_ON_FAILURE
+
+ifdef POLY
+HOLHEAP = emulator-heap
+EXTRA_CLEANS = $(HOLHEAP) $(HOLHEAP).o
+
+BARE_THYS = $(HOLDIR)/examples/ARM/v7/armTheory \
+            $(HOLDIR)/examples/ARM/v7/arm_stepTheory \
+            $(HOLDIR)/examples/ARM/v7/armLib
+DEPS = $(patsubst %,%.uo,$(BARE_THYS))
+
+$(HOLHEAP): $(DEPS)
+	$(protect $(HOLDIR)/bin/buildheap) -o emulator-heap $(BARE_THYS)
+
+endif

@@ -1,0 +1,16 @@
+*Script
+*Theory.sig
+*Theory.sml
+*.uo
+*.ui
+*.o
+.HOLMK
+*.lex.sml
+*.grm.sig
+*.grm.sml
+*.grm-sig.sml
+*.grm.desc
+*.exe
+.DS_Store
+*~
+emulator-heap

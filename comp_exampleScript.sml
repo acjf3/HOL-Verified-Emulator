@@ -51,33 +51,48 @@ val w2w_lemma = blastLib.BBLAST_PROVE
 
 (* The mask with which we identify this instruction *)
 
-fun max_words tm = let
-  fun max_word v = let
-    val ty = type_of v |> dest_type |> snd |> last
-    in v |-> (wordsSyntax.mk_word_sub(wordsSyntax.mk_n2w(``0:num``,ty),
-                                      wordsSyntax.mk_n2w(``1:num``,ty))
-              |> EVAL |> concl |> rand) end
-    handle HOL_ERR _ => ``v:num`` |-> ``v:num``
-  in subst (map (max_word) (free_vars tm)) tm end
+val eval = rand o concl o EVAL
 
-val mask = (rand o concl o EVAL)
-  (wordsSyntax.mk_word_1comp(max_words arm_data_imm_enc_tm))
+fun subst_words f g tm =
+   let
+      fun subst_word v =
+         v |-> eval (f (wordsSyntax.dim_of v))
+         handle HOL_ERR _ => ``v:num`` |-> ``v:num``
+   in
+      subst (map (subst_word) (g tm)) tm
+   end
 
-fun zero_words tm = let
-  fun zero_word v = let
-    val ty = type_of v |> dest_type |> snd |> last
-    in v |-> wordsSyntax.mk_n2w(``0:num``,ty) end
-    handle HOL_ERR _ => ``v:num`` |-> ``v:num``
-  in subst (map (zero_word) (free_vars tm)) tm end
+fun mk_word_0 ty = wordsSyntax.mk_n2w (``0n``, ty);
 
-val match = (rand o concl o EVAL) (zero_words arm_data_imm_enc_tm)
+val max_words  = subst_words wordsSyntax.mk_word_T free_vars;
+val zero_words = subst_words mk_word_0 free_vars;
+
+val zero_lits =
+   subst_words mk_word_0 (HolKernel.find_terms wordsSyntax.is_word_literal);
+
+val mask =
+   eval (wordsSyntax.mk_word_1comp (max_words (zero_lits arm_data_imm_enc_tm)))
+
+val match = eval (zero_words arm_data_imm_enc_tm)
 
 (* We prove that the mask is suffient. *)
 
-val tm = list_mk_exists(free_vars arm_data_imm_enc_tm,``w = ^arm_data_imm_enc_tm``)
-val tm = ``!w. ((w:word32) && ^mask = ^match) ==> ^tm``
+val tm =
+   list_mk_exists(free_vars arm_data_imm_enc_tm, ``w = ^arm_data_imm_enc_tm``)
+
 (* This would have been a pain to prove without blast! *)
-val mask_lemma = blastLib.BBLAST_PROVE tm
+
+val mask_lemma = Q.prove(`!w. ((w:word32) && ^mask = ^match) ==> ^tm`,
+  REPEAT STRIP_TAC
+  \\ MAP_EVERY Q.EXISTS_TAC
+     [`w2w (^cond_bits w)`,
+      `$FCP (K ^s_bit)`,
+      `w2w (^imm8_bits w)`,
+      `w2w (^rotate_imm_bits w)`,
+      `w2w (^rd_bits w)`,
+      `w2w (^rn_bits w)`,
+      `w2w (^opcode_bits w)`]
+  \\ blastLib.FULL_BBLAST_TAC)
 
 
 (* We use define_compiler_exp to define the compiling function. *)
